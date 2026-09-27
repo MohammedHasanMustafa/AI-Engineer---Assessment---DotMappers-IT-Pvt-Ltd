@@ -29,14 +29,15 @@ STATUS_UI = {
 STATUS_ICON = {"indexed": "✅", "skipped": "⏭️", "empty": "⚪", "error": "❌", "unsupported": "🚫"}
 
 
+# ============================================================================ setup
 @st.cache_resource(show_spinner="Loading models and index (first start downloads ~150 MB of models)…")
 def get_pipeline() -> RAGPipeline:
-    if os.getenv("RAG_SMOKE_TEST") == "1":           
+    if os.getenv("RAG_SMOKE_TEST") == "1":           # CI only: no model downloads
         from rag.embeddings import HashingEmbedder
         pipe = RAGPipeline(settings, embedder=HashingEmbedder(), reranker=None, llm=None)
     else:
         pipe = RAGPipeline(settings)
-    pipe.ingest_directory(settings.docs_dir, settings.upload_dir)   
+    pipe.ingest_directory(settings.docs_dir, settings.upload_dir)   # skips already-indexed files
     return pipe
 
 
@@ -52,6 +53,7 @@ def fmt(v, nd=2):
 pipe = get_pipeline()
 ss = st.session_state
 
+# ============================================================================ sidebar
 with st.sidebar:
     st.subheader("Retrieval settings")
     top_k = st.slider("Passages to retrieve (top-k)", 1, 15, settings.top_k)
@@ -76,6 +78,7 @@ ASK_KW = dict(top_k=top_k, use_hybrid=use_hybrid, use_rerank=use_rerank, sources
               generator=gen_mode, min_relevance=min_rel)
 
 
+# ============================================================================ rendering
 def render_response(resp: RAGResponse, key: str) -> None:
     label, color = STATUS_UI.get(resp.status, (resp.status, "grey"))
     st.markdown(f"#### :{color}[{label}]")
@@ -136,15 +139,17 @@ def render_response(resp: RAGResponse, key: str) -> None:
             with st.expander(f"{rc.label} · {rc.chunk.source} · {rc.chunk.pages} · "
                              f"relevance {rc.relevance:.2f}{flag}", expanded=rc.label in cited_labels):
                 st.text_area("Passage text (shown as plain text, never executed)", rc.chunk.text,
-                             height=160, disabled=True, key=f"{key}-{rc.label}")
+                             height=160, disabled=True, key=f"{key}-{rc.label}-{rc.chunk.chunk_id}")
                 if rc.neutralized:
                     st.caption(f"{rc.neutralized} sentence(s) were replaced before this passage "
                                "was shown to the model.")
 
 
+# ============================================================================ tabs
 tab_ask, tab_docs, tab_log, tab_eval, tab_inj = st.tabs(
     ["Ask", "Documents", "Evaluation log", "Run evaluation", "Prompt-injection demo"])
 
+# ---------------------------------------------------------------------------- Ask
 with tab_ask:
     st.markdown("### Ask a question about the indexed research documents")
     examples = ["How many attention heads does the base Transformer use?",
@@ -159,6 +164,7 @@ with tab_ask:
     if "last" in ss:
         render_response(ss["last"], "ask")
 
+# ---------------------------------------------------------------------------- Documents
 with tab_docs:
     st.markdown("### Knowledge base")
     ups = st.file_uploader("Add PDF, TXT or Markdown files", type=["pdf", "txt", "md", "markdown"],
@@ -209,6 +215,7 @@ with tab_docs:
             ss["ingest"] = [asdict(r) for r in pipe.rebuild_index()]
         st.rerun()
 
+# ---------------------------------------------------------------------------- Evaluation log
 def _cell_color(v):
     if v is None or pd.isna(v):
         return "color: grey"
@@ -245,6 +252,7 @@ with tab_log:
             pipe.log.clear()
             st.rerun()
 
+# ---------------------------------------------------------------------------- Run evaluation
 with tab_eval:
     st.markdown("### Run the evaluation dataset")
     items = load_dataset(DATASET_PATH)
@@ -284,6 +292,7 @@ with tab_eval:
         c2.download_button("Download per-question results (JSON)", json.dumps(results, indent=2),
                            "eval_results.json")
 
+# ---------------------------------------------------------------------------- Injection demo
 with tab_inj:
     st.markdown("### Instructions inside documents are treated as content, not commands")
     st.markdown(

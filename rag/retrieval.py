@@ -62,7 +62,7 @@ class HybridRetriever:
                     rc.fused_score += 1.0 / (cfg.rrf_k + rank + 1)
             stats["bm25_ms"] = round((time.perf_counter() - t) * 1000, 1)
 
-        for i, rc in cands.items():                     
+        for i, rc in cands.items():                     # BM25-only hits still get a cosine
             if rc.vector_score is None:
                 rc.vector_score = float(self.store.vectors[i] @ qvec)
 
@@ -100,7 +100,7 @@ class HybridRetriever:
             if h in seen:
                 continue
             v = self.store.vectors[i]
-            if any(float(v @ self.store.vectors[j]) >= self.cfg.dedup_threshold for j, _ in kept):
+            if any(k.chunk.source == rc.chunk.source and float(v @ self.store.vectors[j]) >= self.cfg.dedup_threshold for j, k in kept):
                 continue
             seen.add(h)
             kept.append((i, rc))

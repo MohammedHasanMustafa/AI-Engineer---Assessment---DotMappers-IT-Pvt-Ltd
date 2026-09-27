@@ -125,7 +125,8 @@ def normalize_llm_output(data: dict, passages: list[RetrievedChunk]):
         warnings.append(f"{len(uncited)} uncited statement(s) moved from evidence to inference.")
     if status not in VALID_STATUSES:
         status = "answered" if evidence else "insufficient_evidence"
-    if status in {"answered", "conflicting"} and not evidence:
+    if status == "answered" and conflicts and evidence:
+        status = "conflicting"
         warnings.append("Model produced no evidence with valid citations; answer refused.")
         status = "insufficient_evidence"
     if status == "insufficient_evidence":
@@ -169,4 +170,3 @@ def extractive_answer(query: str, passages: list[RetrievedChunk], embedder,
     if n_sources > 1:
         inference += " Sentences come from different documents; compare them before relying on them."
     return "answered", evidence, inference, ""
-
