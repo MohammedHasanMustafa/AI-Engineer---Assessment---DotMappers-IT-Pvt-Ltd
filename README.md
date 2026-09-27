@@ -41,7 +41,7 @@ Other commands:
 | `python -m pytest -q` | 21 offline unit/integration tests (no model download; uses a hashing embedder and a scripted fake LLM) |
 | `python -m evaluation.evaluate` | Runs the evaluation dataset from the terminal (same code as the UI tab) |
 | `python -m evaluation.evaluate --extractive --no-rerank` | Ablations |
-| `LLM_MODEL=llama3.2:3b python run.py` | Any setting in `config.py` can be overridden via an upper-case env var |
+| `python run.py` | Any setting in `config.py` can be overridden via an upper-case env var |
 
 ---
 
